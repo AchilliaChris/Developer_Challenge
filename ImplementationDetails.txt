@@ -1,0 +1,40 @@
+Before running the app a connection string to the database will need to be added as the defaul connection in the appsettings.json file. The connection string should be named "DefaultConnection".
+Probably just edit the server name on mine. The application uses Entity Framework Core as the ORM to interact with a SQL Server database. The DbContext class is configured to use the connection string from the appsettings.json file.
+Then the Update-Database command run in Package Manager Console with the Default Project set to the project containing the DbContext, DataAccess. This will create the database and apply any pending migrations.
+The HotelsApis should be set as the start project. Running the application will start the web server and host the API endpoints, which can be accessed via Swagger UI at the provided URL. See Urls.txt for details.
+
+The complete solution would need to include authentication and authorisation, plus database audit tables to track changes to important tables. Error handling and logging would also need to be implemented for a production-ready application.
+There would be an Azure Function to handle sending booking confirmation emails to guests upon successful booking.
+
+Further information such as room guests with datetime checked in and checked out, booking status, payment details, and user management would need to be added to the database schema and application logic to create a fully functional hotel booking system.
+
+Swager UI uses American date format (MM/DD/YYYY) when passing dates as query parameters.
+
+There are four scenarios to exclude bookings that overlap with a given date range:
+1. Bookings that end before the start date of the existing booking date range.
+2. Bookings that start before the end date of the existing booking date range.
+3. Bookings that start and end within the given date range.
+4. Bookings that start before and end after the given date range.
+Scenarios 1 and 2:
+Room Bookings |**********************|                      |************************|
+Proposed Booking                                        |***************|
+Scenario 3 :
+Room Bookings                      |**********************|
+Proposed Booking                                    |****|
+Scenario 4 :
+Room Bookings                                   |*****|
+Proposed Booking             |************************| Neither the start nor end date fall within the booked date range.
+
+Scenarios 1, 2 and 3 are excluded using the following conditions: The start or end dates mustn't fall within the booked date range.
+  !(booking.StartDate >= booked.startDate && booking.sartDate <= booked.endDate) || !(booking.endDate >= booked.startDate && booking.endDate <= booked.endDate)
+  Scenario 4 is excluded using the following condition: The booking mustn't completely encompass the given date range. Since checking the start date isn't in this range will exclude this scenario, the end date doesn't need to be checked.
+    !(booked.startDate > booking.startDate && booked.startDate < booking.endDate)
+
+Whilst the linq queries are sufficient for demonstration of the principles involved, for a production-ready application it would be better to use stored procedures for complex queries to improve performance and maintainability. This would require mocking in the unit tests and additional integration testing to ensure full functionality.
+The booking could be constructed as a single transaction with a try cath to allow rollback in case of any errors during the booking process.    This would prevent orphaned records in the event of a failure during the booking process.
+
+Testing is limited to services,  controllers and validators . There may be further tests required for a production-ready application, including integration tests and end-to-end tests to ensure the entire booking process works as expected.
+The application currently does not handle time zones. All date and time values are assumed to be in the server's local time zone. For a production application, it would be important to standardize on a specific time zone (e.g., UTC) and convert all date and time values accordingly to avoid issues with bookings across different time zones.
+The application uses dependency injection to manage service lifetimes and dependencies. Services such as the DbContext, repositories, and business logic services are registered in the Startup.cs file.
+
+Further validation including splitting the address into validated fields populated and validated via a postcode/address lookup service would be needed for a production-ready application.

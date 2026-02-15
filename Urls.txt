@@ -1,0 +1,66 @@
+https://localhost:7110/swagger/index.html
+
+https://localhost:7110/hotels/getbyname?name=Grand+Plaza
+
+https://localhost:7110/Booking?startDate=02%2F06%2F2026&endDate=12%2F06%2F2026&numberOfGuests=3
+
+
+
+{
+  "customer": {
+    "firstName": "Paul",
+    "lastName": "Pope",
+    "address": "91 Rude Avenue, Greatley",
+    "email": "ppope@futuremail.co.uk",
+    "phone": "+44 1917 2365548"
+  },
+  "hotel": {
+    "name": "Grand Plaza",
+    "address": "123 Main St, Cityville",
+    "phone": "+44 1234 56789123"
+  },
+  "rooms": [
+    {
+      "hotelName": "Grand Plaza",
+        "roomType": "Single",
+        "roomNumber": 1,
+        "pricePerNight": 75,
+        "capacity": 1,
+      "guests": [
+        {
+          "firstName": "Paul",
+          "lastName": "Pope",
+          "address": "91 Rude Avenue, Greatley",
+          "email": "ppope@futuremail.co.uk",
+          "phone": "+44 1917 236554"
+        }
+      ]
+    },
+{
+      "hotelName": "Grand Plaza",
+        "roomType": "Double",
+        "roomNumber": 2,
+        "pricePerNight": 155,
+        "capacity": 2,
+      "guests": [
+        {
+          "firstName": "Corine",
+          "lastName": "Bailey",
+          "address": "flat 44 meadows rise, Batley, BD12 9PP",
+          "email": "cbailey@gmail.com",
+          "phone": "+44 156 72893673"
+        },
+{
+          "firstName": "Ron",
+          "lastName": "Bailey",
+          "address": "flat 44 meadows rise, Batley, BD12 9PP",
+          "email": "rbailey@gmail.com",
+          "phone": "+44 1562 8274364"
+        }
+      ]
+    }
+  ],
+  "startDate": "2026-06-06T10:35:03.061Z",
+  "endDate": "2026-06-09T10:35:03.061Z"
+}
+
