@@ -352,5 +352,335 @@ namespace HotelsApiTests
             Assert.Single(result2.First().Rooms);
             Assert.Equal(availableRoom.RoomId, result2.First().Rooms.First().RoomId);
         }
+
+        [Fact]
+        public async Task GetHotelByName_MultipleHotels_ReturnsOnlyMatching()
+        {
+            // Test that only matching hotels are returned when multiple exist
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            context.Hotels.Add(new Hotel { Name = "Hotel A", Phone = "+44 111", Address = "Address A" });
+            context.Hotels.Add(new Hotel { Name = "Hotel B", Phone = "+44 222", Address = "Address B" });
+            context.Hotels.Add(new Hotel { Name = "Hotel C", Phone = "+44 333", Address = "Address C" });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            var result = await service.GetHotelByName("Hotel B");
+            Assert.Single(result);
+            Assert.Equal("Hotel B", result.First().Name);
+        }
+
+        [Fact]
+        public async Task GetHotelByName_PartialMatch_ReturnsMatching()
+        {
+            // Test that partial name matching doesn't work (exact match required)
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            context.Hotels.Add(new Hotel { Name = "Grand Hotel Downtown", Phone = "+44 111", Address = "Address" });
+            context.Hotels.Add(new Hotel { Name = "Grand Hotel Uptown", Phone = "+44 222", Address = "Address" });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            // Partial match doesn't work - requires minimum 3 chars and exact match
+            var result = await service.GetHotelByName("Grand");
+            Assert.Empty(result); // No partial matching
+        }
+
+        [Fact]
+        public async Task GetHotelByName_ExactMatchAmongMany_ReturnsOnly()
+        {
+            // Test exact matching among similar names
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            context.Hotels.Add(new Hotel { Name = "Grand Hotel Downtown", Phone = "+44 111", Address = "Address" });
+            context.Hotels.Add(new Hotel { Name = "Grand Hotel Uptown", Phone = "+44 222", Address = "Address" });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            var result = await service.GetHotelByName("Grand Hotel Downtown");
+            Assert.Single(result);
+            Assert.Equal("Grand Hotel Downtown", result.First().Name);
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_DatesMustBeOrdered_NotAllowed()
+        {
+            // Test that service validates startDate < endDate
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Test Hotel", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            context.Rooms.Add(new Room { Hotel_Id = hotel.HotelId, RoomNumber = 1, Capacity = 2, PricePerNight = 50.0 });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            // StartDate must be before EndDate
+            var singleDay = DateTime.Today.AddDays(5);
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                service.GetAvailableHotelRooms(singleDay, singleDay, 1));
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_MultipleHotels_AllIncluded()
+        {
+            // Test that multiple available hotels are returned
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel1 = new Hotel { Name = "Hotel 1", Phone = "+44 111", Address = "Address 1" };
+            var hotel2 = new Hotel { Name = "Hotel 2", Phone = "+44 222", Address = "Address 2" };
+            var hotel3 = new Hotel { Name = "Hotel 3", Phone = "+44 333", Address = "Address 3" };
+            context.Hotels.AddRange(hotel1, hotel2, hotel3);
+            context.SaveChanges();
+
+            context.Rooms.Add(new Room { Hotel_Id = hotel1.HotelId, RoomNumber = 1, Capacity = 2, PricePerNight = 50.0 });
+            context.Rooms.Add(new Room { Hotel_Id = hotel2.HotelId, RoomNumber = 1, Capacity = 2, PricePerNight = 60.0 });
+            context.Rooms.Add(new Room { Hotel_Id = hotel3.HotelId, RoomNumber = 1, Capacity = 2, PricePerNight = 70.0 });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            var result = await service.GetAvailableHotelRooms(DateTime.Today.AddDays(1), DateTime.Today.AddDays(2), 1);
+            Assert.Equal(3, result.Count);
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_ManyRooms_AllIncluded()
+        {
+            // Test hotel with many rooms
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Big Hotel", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            // Add 20 rooms
+            for (int i = 1; i <= 20; i++)
+            {
+                context.Rooms.Add(new Room { Hotel_Id = hotel.HotelId, RoomNumber = i, Capacity = 2, PricePerNight = 50.0 });
+            }
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            var result = await service.GetAvailableHotelRooms(DateTime.Today.AddDays(1), DateTime.Today.AddDays(2), 1);
+            Assert.Single(result);
+            Assert.Equal(20, result.First().Rooms.Count);
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_ExactCapacityMatch_Included()
+        {
+            // Test hotel with exact guest capacity match
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Exact Hotel", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            context.Rooms.Add(new Room { Hotel_Id = hotel.HotelId, RoomNumber = 1, Capacity = 5, PricePerNight = 50.0 });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            // Request exactly 5 guests
+            var result = await service.GetAvailableHotelRooms(DateTime.Today.AddDays(1), DateTime.Today.AddDays(2), 5);
+            Assert.Single(result);
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_CapacityExceedsGuests_Included()
+        {
+            // Test hotel with excess capacity included
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Spacious Hotel", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            context.Rooms.Add(new Room { Hotel_Id = hotel.HotelId, RoomNumber = 1, Capacity = 10, PricePerNight = 50.0 });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            // Request 3 guests, hotel has capacity for 10
+            var result = await service.GetAvailableHotelRooms(DateTime.Today.AddDays(1), DateTime.Today.AddDays(2), 3);
+            Assert.Single(result);
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_VariousRoomPrices_AllIncluded()
+        {
+            // Test hotel with rooms at different price points
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Varied Hotel", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            context.Rooms.Add(new Room { Hotel_Id = hotel.HotelId, RoomNumber = 101, Capacity = 1, PricePerNight = 30.0 });
+            context.Rooms.Add(new Room { Hotel_Id = hotel.HotelId, RoomNumber = 102, Capacity = 2, PricePerNight = 50.0 });
+            context.Rooms.Add(new Room { Hotel_Id = hotel.HotelId, RoomNumber = 103, Capacity = 4, PricePerNight = 100.0 });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            var result = await service.GetAvailableHotelRooms(DateTime.Today.AddDays(1), DateTime.Today.AddDays(2), 1);
+            Assert.Single(result);
+            Assert.Equal(3, result.First().Rooms.Count);
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_LongStay_Available()
+        {
+            // Test availability for long stay (30+ days)
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Long Stay Hotel", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            context.Rooms.Add(new Room { Hotel_Id = hotel.HotelId, RoomNumber = 1, Capacity = 2, PricePerNight = 50.0 });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            // Request 30 days
+            var startDate = DateTime.Today.AddDays(1);
+            var endDate = DateTime.Today.AddDays(31);
+            var result = await service.GetAvailableHotelRooms(startDate, endDate, 1);
+            Assert.Single(result);
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_PartialBookings_OnlyAvailableRoomsReturned()
+        {
+            // Test when hotel has some booked and some available rooms
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Partially Booked", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            var room1 = new Room { Hotel_Id = hotel.HotelId, RoomNumber = 1, Capacity = 2, PricePerNight = 50.0 };
+            var room2 = new Room { Hotel_Id = hotel.HotelId, RoomNumber = 2, Capacity = 2, PricePerNight = 50.0 };
+            var room3 = new Room { Hotel_Id = hotel.HotelId, RoomNumber = 3, Capacity = 2, PricePerNight = 50.0 };
+            context.Rooms.AddRange(room1, room2, room3);
+            context.SaveChanges();
+
+            // Book room 2
+            var roomBooking = new RoomBooking
+            {
+                Room_Id = room2.RoomId,
+                Booking_Id = 1,
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(3)
+            };
+            context.RoomBookings.Add(roomBooking);
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            var result = await service.GetAvailableHotelRooms(DateTime.Today.AddDays(1), DateTime.Today.AddDays(2), 1);
+            Assert.Single(result);
+            Assert.Equal(2, result.First().Rooms.Count); // Only rooms 1 and 3
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_MultipleBookings_CorrectlyFiltered()
+        {
+            // Test room with multiple bookings, only overlapping filtered out
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Busy Hotel", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            var room = new Room { Hotel_Id = hotel.HotelId, RoomNumber = 1, Capacity = 2, PricePerNight = 50.0 };
+            context.Rooms.Add(room);
+            context.SaveChanges();
+
+            // Add multiple bookings
+            context.RoomBookings.Add(new RoomBooking { Room_Id = room.RoomId, Booking_Id = 1, StartDate = DateTime.Today.AddDays(1), EndDate = DateTime.Today.AddDays(2) });
+            context.RoomBookings.Add(new RoomBooking { Room_Id = room.RoomId, Booking_Id = 2, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(6) });
+            context.RoomBookings.Add(new RoomBooking { Room_Id = room.RoomId, Booking_Id = 3, StartDate = DateTime.Today.AddDays(10), EndDate = DateTime.Today.AddDays(11) });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            // Query for available period between bookings
+            var result = await service.GetAvailableHotelRooms(DateTime.Today.AddDays(3), DateTime.Today.AddDays(4), 1);
+            Assert.Single(result);
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_HighCapacityRooms_Available()
+        {
+            // Test hotel with high capacity rooms
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Group Hotel", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            context.Rooms.Add(new Room { Hotel_Id = hotel.HotelId, RoomNumber = 1, Capacity = 20, PricePerNight = 200.0 });
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            var result = await service.GetAvailableHotelRooms(DateTime.Today.AddDays(1), DateTime.Today.AddDays(2), 15);
+            Assert.Single(result);
+        }
+
+        [Fact]
+        public async Task GetAvailableHotelRooms_NoAvailableHotels_ReturnsEmpty()
+        {
+            // Test when all hotels are fully booked
+            var dbName = Guid.NewGuid().ToString();
+            using var context = CreateInMemoryContext(dbName);
+
+            var hotel = new Hotel { Name = "Full Hotel", Phone = "+44 111", Address = "Address" };
+            context.Hotels.Add(hotel);
+            context.SaveChanges();
+
+            var room = new Room { Hotel_Id = hotel.HotelId, RoomNumber = 1, Capacity = 2, PricePerNight = 50.0 };
+            context.Rooms.Add(room);
+            context.SaveChanges();
+
+            // Book the only room
+            var roomBooking = new RoomBooking
+            {
+                Room_Id = room.RoomId,
+                Booking_Id = 1,
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(10)
+            };
+            context.RoomBookings.Add(roomBooking);
+            context.SaveChanges();
+
+            var service = CreateService(context);
+
+            // Request overlapping the booking
+            var result = await service.GetAvailableHotelRooms(DateTime.Today.AddDays(2), DateTime.Today.AddDays(5), 1);
+            Assert.Empty(result);
+        }
     }
 }

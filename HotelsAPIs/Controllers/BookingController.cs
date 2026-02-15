@@ -15,13 +15,11 @@ namespace HotelsAPIs.Controllers
        // private readonly IMapper mapper;
         public BookingController(IHotelService _hotelService,
             IBookingService _bookingService,
-            ILogger<HotelsController> _logger/*,
-            IMapper _mapper*/)
+            ILogger<HotelsController> _logger)
         {
             hotelService = _hotelService;
             bookingService = _bookingService;
             logger = _logger;
-         //   mapper = _mapper;
         }
         [Route("getavailable")]
         [HttpGet(Name = "GetAvailableHotelRooms")]

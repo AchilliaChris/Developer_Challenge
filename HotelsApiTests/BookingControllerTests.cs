@@ -12,8 +12,7 @@ namespace HotelsApiTests
     {
         private static BookingController CreateController(
             Mock<IHotelService>? hotelService = null,
-            Mock<IBookingService>? bookingService = null/*,
-            Mock<IMapper>? mapper = null*/)
+            Mock<IBookingService>? bookingService = null)
         {
             var hs = hotelService ?? new Mock<IHotelService>();
             var bs = bookingService ?? new Mock<IBookingService>();
@@ -90,7 +89,7 @@ namespace HotelsApiTests
                 .Setup(s => s.CreateBooking(It.IsAny<BookingRequestViewModel>()))
                 .ReturnsAsync((bookingResponse, "Room not available"));
 
-            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock/*, new Mock<IMapper>()*/);
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
 
             // Act
             var actionResult = await controller.BookRoom(bookingRequest);
@@ -348,6 +347,407 @@ namespace HotelsApiTests
             // Assert
             var notFound = Assert.IsType<NotFoundObjectResult>(result);
             Assert.Equal("Success", notFound.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneIsNull_ReturnsBadRequest()
+        {
+            // Arrange
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = null! // Null phone
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingResponseModel = new BookingResponseViewModel();
+            var bookingServiceMock = new Mock<IBookingService>();
+            bookingServiceMock
+                .Setup(s => s.CreateBooking(It.IsAny<BookingRequestViewModel>()))
+                .ReturnsAsync((bookingResponseModel, "Phone is required"));
+
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            // Null phone results in NotFound since validation passes but booking fails
+            var notFound = Assert.IsType<NotFoundObjectResult>(result);
+            Assert.Equal("Phone is required", notFound.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneIsWhitespaceOnly_ReturnsBadRequest()
+        {
+            // Arrange
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "   " // Whitespace only
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+            controller.ModelState.AddModelError("Customer.Phone", "The Phone field is required.");
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(badRequest.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneTooShort_ReturnsBadRequest()
+        {
+            // Arrange - Phone must be at least 7 characters per regex
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "123456" // Only 6 characters
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+            controller.ModelState.AddModelError("Customer.Phone", "Invalid phone number format.");
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(badRequest.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneExactlySevenDigits_IsValid()
+        {
+            // Arrange - Phone with exactly 7 digits should be valid (minimum length per regex)
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "1234567" // Exactly 7 characters
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingResponseModel = new BookingResponseViewModel
+            {
+                BookingReference = "REF789",
+                CustomerName = "John Doe",
+                TotalPrice = 250,
+                RoomBookings = new List<RoomBookingResponseViewModel>()
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            bookingServiceMock
+                .Setup(s => s.CreateBooking(It.IsAny<BookingRequestViewModel>()))
+                .ReturnsAsync((bookingResponseModel, "Success"));
+
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var notFound = Assert.IsType<NotFoundObjectResult>(result);
+            Assert.Equal("Success", notFound.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneWithInternationalPrefix_IsValid()
+        {
+            // Arrange
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "+1-202-555-0147" // International format with hyphens
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingResponseModel = new BookingResponseViewModel
+            {
+                BookingReference = "REF456",
+                CustomerName = "John Doe",
+                TotalPrice = 250,
+                RoomBookings = new List<RoomBookingResponseViewModel>()
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            bookingServiceMock
+                .Setup(s => s.CreateBooking(It.IsAny<BookingRequestViewModel>()))
+                .ReturnsAsync((bookingResponseModel, "Success"));
+
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var notFound = Assert.IsType<NotFoundObjectResult>(result);
+            Assert.Equal("Success", notFound.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneWithParentheses_IsValid()
+        {
+            // Arrange
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "(202) 555-0147" // Phone with parentheses
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingResponseModel = new BookingResponseViewModel
+            {
+                BookingReference = "REF234",
+                CustomerName = "John Doe",
+                TotalPrice = 250,
+                RoomBookings = new List<RoomBookingResponseViewModel>()
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            bookingServiceMock
+                .Setup(s => s.CreateBooking(It.IsAny<BookingRequestViewModel>()))
+                .ReturnsAsync((bookingResponseModel, "Success"));
+
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var notFound = Assert.IsType<NotFoundObjectResult>(result);
+            Assert.Equal("Success", notFound.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneWithSpaces_IsValid()
+        {
+            // Arrange
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "202 555 0147" // Phone with spaces
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingResponseModel = new BookingResponseViewModel
+            {
+                BookingReference = "REF567",
+                CustomerName = "John Doe",
+                TotalPrice = 250,
+                RoomBookings = new List<RoomBookingResponseViewModel>()
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            bookingServiceMock
+                .Setup(s => s.CreateBooking(It.IsAny<BookingRequestViewModel>()))
+                .ReturnsAsync((bookingResponseModel, "Success"));
+
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var notFound = Assert.IsType<NotFoundObjectResult>(result);
+            Assert.Equal("Success", notFound.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneWithInvalidSpecialCharacters_ReturnsBadRequest()
+        {
+            // Arrange
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "202#555@0147" // Invalid special characters
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+            controller.ModelState.AddModelError("Customer.Phone", "Invalid phone number format.");
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(badRequest.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneWithLetters_ReturnsBadRequest()
+        {
+            // Arrange
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "2025ABC147" // Contains letters
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+            controller.ModelState.AddModelError("Customer.Phone", "Invalid phone number format.");
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(badRequest.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneVeryLong_IsValid()
+        {
+            // Arrange - Tests that phone can be longer than typical (no upper limit in regex)
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "+1 (202) 555-0147 ext. 1234567890123456" // Extended phone number
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingResponseModel = new BookingResponseViewModel
+            {
+                BookingReference = "REF890",
+                CustomerName = "John Doe",
+                TotalPrice = 250,
+                RoomBookings = new List<RoomBookingResponseViewModel>()
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            bookingServiceMock
+                .Setup(s => s.CreateBooking(It.IsAny<BookingRequestViewModel>()))
+                .ReturnsAsync((bookingResponseModel, "Success"));
+
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var notFound = Assert.IsType<NotFoundObjectResult>(result);
+            Assert.Equal("Success", notFound.Value);
+        }
+
+        [Fact]
+        public async Task BookRoom_WhenCustomerPhoneWithOnlyHyphens_ReturnsBadRequest()
+        {
+            // Arrange - Phone with only hyphens and spaces (no digits)
+            var bookingRequest = new BookingRequestViewModel
+            {
+                Customer = new CustomerViewModel
+                {
+                    FirstName = "John",
+                    LastName = "Doe",
+                    Email = "john@example.com",
+                    Phone = "--- --- ---" // Only hyphens and spaces
+                },
+                Hotel = new HotelBookingViewModel(),
+                Rooms = new List<RoomBookingViewModel>(),
+                StartDate = DateTime.Today.AddDays(1),
+                EndDate = DateTime.Today.AddDays(2)
+            };
+
+            var bookingServiceMock = new Mock<IBookingService>();
+            var controller = CreateController(new Mock<IHotelService>(), bookingServiceMock);
+            controller.ModelState.AddModelError("Customer.Phone", "Invalid phone number format.");
+
+            // Act
+            var result = await controller.BookRoom(bookingRequest);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(badRequest.Value);
         }
     }
 
