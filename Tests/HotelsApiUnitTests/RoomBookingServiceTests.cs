@@ -1,7 +1,7 @@
 ﻿using DataAccess;
 using DeveloperChallenge;
 
-namespace HotelsApiTests
+namespace HotelsApiUnitTests
 {
     public class RoomBookingServiceTests
     {

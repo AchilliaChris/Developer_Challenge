@@ -3,7 +3,7 @@ using DeveloperChallenge;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace HotelsApiTests
+namespace HotelsApiUnitTests
 {
     public class HotelServiceTests
     {

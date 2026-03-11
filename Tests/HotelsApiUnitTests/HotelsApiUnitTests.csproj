@@ -26,9 +26,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DataAccess\DataAccess.csproj" />
-    <ProjectReference Include="..\DeveloperChallenge\DeveloperChallenge.csproj" />
-    <ProjectReference Include="..\HotelsAPIs\HotelsAPIs.csproj" />
+    <ProjectReference Include="..\..\Application\DataAccess\DataAccess.csproj" />
+    <ProjectReference Include="..\..\Application\DeveloperChallenge\DeveloperChallenge.csproj" />
+    <ProjectReference Include="..\..\Application\HotelsAPIs\HotelsAPIs.csproj" />
   </ItemGroup>
 
   <ItemGroup>

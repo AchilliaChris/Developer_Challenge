@@ -44,7 +44,8 @@ namespace HotelsAPIs
                 await context.Hotels.AddRangeAsync(
                       new DataAccess.Hotel { Name = "Grand Plaza", Address = "123 Main St, Cityville", Phone = "+44 1234 56789123" },
                       new DataAccess.Hotel { Name = "Mardon Villa", Address = "28 High St, Redtown", Phone = "+44 1417 9258465" },
-                      new DataAccess.Hotel { Name = "Hilton Heights", Address = "425 Main Rd, Bluefield", Phone = "+44 1187 62549785" }
+                      new DataAccess.Hotel { Name = "Hilton Heights", Address = "425 Main Rd, Bluefield", Phone = "+44 1187 62549785" },
+                      new DataAccess.Hotel { Name = "TestHotel", Address = "1 Test St, Testville", Phone = "+44 1000 000000" }
                       );
                 await context.SaveChangesAsync();
 

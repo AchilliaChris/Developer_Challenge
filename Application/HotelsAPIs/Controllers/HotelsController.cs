@@ -21,13 +21,18 @@ namespace HotelsAPIs.Controllers
 
         [Route("getbyname")]
         [HttpGet(Name = "GetByName")]
-        public async Task<IEnumerable<HotelViewModel>> GetHotelByName(string name)
-        { 
-            var hotel = await hotelService.GetHotelByName(name);
-            return hotel.Select(hotel => Mapper.MapHotelToHotelViewModel(hotel))
-                .ToArray();
+        public async Task<IActionResult> GetHotelByName(string name)
+        {
+            try
+            {
+                var hotel = await hotelService.GetHotelByName(name);
+                var result = hotel.Select(hotel => Mapper.MapHotelToHotelViewModel(hotel)).ToArray();
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
-
-        
     }
 }

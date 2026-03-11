@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
-namespace HotelsApiTests
+namespace HotelsApiUnitTests
 {
     public class BookingControllerTests
     {

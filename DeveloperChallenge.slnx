@@ -1,11 +1,16 @@
 <Solution>
+  <Folder Name="/Application/">
+    <Project Path="Application/DataAccess/DataAccess.csproj" />
+    <Project Path="Application/DeveloperChallenge/DeveloperChallenge.csproj" />
+    <Project Path="Application/HotelsAPIs/HotelsAPIs.csproj" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".gitignore" />
     <File Path="ImplementationDetails.txt" />
     <File Path="Urls.txt" />
   </Folder>
-  <Project Path="DataAccess/DataAccess.csproj" Id="c02dffe4-e830-406a-b235-73d71267b455" />
-  <Project Path="DeveloperChallenge/DeveloperChallenge.csproj" />
-  <Project Path="HotelsAPIs/HotelsAPIs.csproj" />
-  <Project Path="HotelsApiTests/HotelsApiTests.csproj" Id="dd7ebfcd-fda3-4d1f-a834-6c829ea74ccb" />
+  <Folder Name="/Tests/">
+    <Project Path="Tests/HotelsApiIntegrationTests/HotelsApiIntegrationTests.csproj" />
+    <Project Path="Tests/HotelsApiUnitTests/HotelsApiUnitTests.csproj" />
+  </Folder>
 </Solution>

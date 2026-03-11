@@ -1,7 +1,7 @@
 ﻿using DeveloperChallenge.Validators;
 using System.ComponentModel.DataAnnotations;
 
-namespace HotelsApiTests
+namespace HotelsApiUnitTests
 {
     public class ValidatorTests
     {

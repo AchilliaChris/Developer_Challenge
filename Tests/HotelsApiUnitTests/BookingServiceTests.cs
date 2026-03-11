@@ -4,7 +4,7 @@ using DeveloperChallenge.ViewModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace HotelsApiTests
+namespace HotelsApiUnitTests
 {
     public class BookingServiceTests
     {

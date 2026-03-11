@@ -4,7 +4,7 @@ using HotelsAPIs.Controllers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
-namespace HotelsApiTests
+namespace HotelsApiUnitTests
 {
     public class ExistingBookingControllerTests
     {

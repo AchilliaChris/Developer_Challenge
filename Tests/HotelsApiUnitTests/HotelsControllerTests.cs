@@ -2,11 +2,12 @@
 using DeveloperChallenge;
 using DeveloperChallenge.ViewModels;
 using HotelsAPIs.Controllers;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 
-namespace HotelsApiTests
+namespace HotelsApiUnitTests
 {
     public class HotelsControllerTests
     {
@@ -18,34 +19,36 @@ namespace HotelsApiTests
             return new HotelsController(hs.Object, logger);
         }
 
-        [Fact]
-        public async Task GetHotelByName_ReturnsMappedHotels()
-        {
-            // Arrange
-            var name = "Hilton";
-            var hotelEntities = new List<Hotel>
-            {
-                new Hotel { HotelId = 1, Name = "Hilton Downtown", Address = "A", Phone = "P" },
-                new Hotel { HotelId = 2, Name = "Hilton Uptown", Address = "B", Phone = "Q" }
-            };
+          [Fact]
+          public async Task GetHotelByName_ReturnsMappedHotels()
+          {
+              // Arrange
+              var name = "Hilton";
+              var hotelEntities = new List<Hotel>
+              {
+                  new Hotel { HotelId = 1, Name = "Hilton Downtown", Address = "A", Phone = "P" },
+                  new Hotel { HotelId = 2, Name = "Hilton Uptown", Address = "B", Phone = "Q" }
+              };
 
-            var hotelServiceMock = new Mock<IHotelService>();
-            hotelServiceMock
-                .Setup(s => s.GetHotelByName(name))
-                .ReturnsAsync(hotelEntities);
+              var hotelServiceMock = new Mock<IHotelService>();
+              hotelServiceMock
+                  .Setup(s => s.GetHotelByName(name))
+                  .ReturnsAsync(hotelEntities);
 
-         
-            var controller = CreateController(hotelServiceMock);
 
-            // Act
-            var result = await controller.GetHotelByName(name);
+              var controller = CreateController(hotelServiceMock);
+
+              // Act
+              var result = await controller.GetHotelByName(name);
 
             // Assert
-            var array = result.ToArray();
-            Assert.Equal(2, array.Length);
-            Assert.Contains(array, h => h.Name == "Hilton Downtown");
-            Assert.Contains(array, h => h.Name == "Hilton Uptown");
-        }
+            IEnumerable<HotelViewModel> enumerable = ((Microsoft.AspNetCore.Mvc.ObjectResult)result).Value as IEnumerable<HotelViewModel>;
+            if (enumerable == null) throw new InvalidOperationException("Expected IEnumerable<HotelViewModel>");
+              var array = enumerable.ToArray();
+              Assert.Equal(2, array.Length);
+              Assert.Contains(array, h => h.Name == "Hilton Downtown");
+              Assert.Contains(array, h => h.Name == "Hilton Uptown");
+          }
 
         [Fact]
         public async Task GetHotelByName_WhenServiceReturnsEmpty_ReturnsEmptyArray()
@@ -64,7 +67,9 @@ namespace HotelsApiTests
             var result = await controller.GetHotelByName(name);
 
             // Assert
-            var array = result.ToArray();
+            IEnumerable<HotelViewModel> enumerable = ((Microsoft.AspNetCore.Mvc.ObjectResult)result).Value as IEnumerable<HotelViewModel>;
+            if (enumerable == null) throw new InvalidOperationException("Expected IEnumerable<HotelViewModel>");
+            HotelViewModel[] array = enumerable.ToArray();
             Assert.Empty(array);
         }
 
@@ -109,7 +114,27 @@ namespace HotelsApiTests
         }
 
         [Fact]
-        public async Task GetHotelByName_WhenServiceThrows_ExceptionPropagates()
+        public async Task GetHotelByName_WhenServiceThrowsArgumentException_ReturnsBadRequest()
+        {
+            // Arrange
+            var name = "boom";
+            var hotelServiceMock = new Mock<IHotelService>();
+            hotelServiceMock
+                .Setup(s => s.GetHotelByName(It.IsAny<string>()))
+                .ThrowsAsync(new ArgumentException("svc-failed"));
+
+            var controller = CreateController(hotelServiceMock);
+
+            // Act
+            var result = await controller.GetHotelByName(name);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal("svc-failed", badRequest.Value);
+        }
+
+        [Fact]
+        public async Task GetHotelByName_WhenServiceThrowsOtherException_ExceptionPropagates()
         {
             // Arrange
             var name = "boom";
@@ -140,8 +165,12 @@ namespace HotelsApiTests
             var result = await controller.GetHotelByName(name);
 
             // Assert
-            var array = result.ToArray();
+
+            IEnumerable<HotelViewModel> enumerable = ((Microsoft.AspNetCore.Mvc.ObjectResult)result).Value as IEnumerable<HotelViewModel>;
+            if (enumerable == null) throw new InvalidOperationException("Expected IEnumerable<HotelViewModel>");
+            var array = enumerable.ToArray();
             Assert.Empty(array);
+            
         }
 
         [Fact]
@@ -203,9 +232,13 @@ namespace HotelsApiTests
             var result = await controller.GetHotelByName(name);
 
             // Assert
-            var array = result.ToArray();
+
+            IEnumerable<HotelViewModel> enumerable = ((Microsoft.AspNetCore.Mvc.ObjectResult)result).Value as IEnumerable<HotelViewModel>;
+            if (enumerable == null) throw new InvalidOperationException("Expected IEnumerable<HotelViewModel>");
+            var array = enumerable.ToArray();
             Assert.Single(array);
             Assert.Equal("Marriott Downtown", array[0].Name);
+            
         }
 
         [Fact]
@@ -233,10 +266,13 @@ namespace HotelsApiTests
             // Act
             var result = await controller.GetHotelByName(name);
 
-            // Assert
-            var array = result.ToArray();
+            // Assert           
+            IEnumerable<HotelViewModel> enumerable = ((Microsoft.AspNetCore.Mvc.ObjectResult)result).Value as IEnumerable<HotelViewModel>;
+            if (enumerable == null) throw new InvalidOperationException("Expected IEnumerable<HotelViewModel>");
+            var array = enumerable.ToArray();
             Assert.Equal(50, array.Length);
             Assert.All(array, hotel => Assert.NotNull(hotel.Name));
+            
         }
 
         [Fact]
@@ -261,7 +297,9 @@ namespace HotelsApiTests
             var result = await controller.GetHotelByName(name);
 
             // Assert
-            var array = result.ToArray();
+            IEnumerable<HotelViewModel> enumerable = ((Microsoft.AspNetCore.Mvc.ObjectResult)result).Value as IEnumerable<HotelViewModel>;
+            if (enumerable == null) throw new InvalidOperationException("Expected IEnumerable<HotelViewModel>");
+            var array = enumerable.ToArray();
             Assert.NotNull(array);
             Assert.NotEmpty(array);
             // Verify all returned items are HotelViewModels with mapped Name property
@@ -271,6 +309,7 @@ namespace HotelsApiTests
                 Assert.NotNull(vm.Name);
                 Assert.NotEmpty(vm.Name);
             });
+       
         }
 
         [Fact]
@@ -285,8 +324,11 @@ namespace HotelsApiTests
 
             var controller = CreateController(hotelServiceMock);
 
-            // Act / Assert
-            await Assert.ThrowsAsync<ArgumentException>(async () => await controller.GetHotelByName(name));
+            // Act
+            var result = await controller.GetHotelByName(name);
+            // / Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal("Invalid hotel name", badRequest.Value);
         }
 
         [Fact]
@@ -345,7 +387,9 @@ namespace HotelsApiTests
             var result = await controller.GetHotelByName(name);
 
             // Assert
-            Assert.IsAssignableFrom<IEnumerable<HotelViewModel>>(result);
+            IEnumerable<HotelViewModel> enumerable = ((Microsoft.AspNetCore.Mvc.ObjectResult)result).Value as IEnumerable<HotelViewModel>;
+            Assert.NotNull(enumerable);
+            Assert.IsAssignableFrom<IEnumerable<HotelViewModel>>(enumerable);
         }
 
         [Fact]
@@ -407,9 +451,12 @@ namespace HotelsApiTests
             var result = await controller.GetHotelByName(name);
 
             // Assert
-            var array = result.ToArray();
+            IEnumerable<HotelViewModel> enumerable = ((Microsoft.AspNetCore.Mvc.ObjectResult)result).Value as IEnumerable<HotelViewModel>;
+            if (enumerable == null) throw new InvalidOperationException("Expected IEnumerable<HotelViewModel>");
+            var array = enumerable.ToArray();
             Assert.Single(array);
             Assert.NotNull(array[0].Name);
+            
         }
 
         [Fact]
